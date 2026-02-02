@@ -1,0 +1,11 @@
+{
+  "transactionId": "EQ123456789",
+  "reference": "CUST001",
+  "amount": 25000,
+  "currency": "KES",
+  "status": "SUCCESS",
+  "customerName": "Mary Wanjiku",
+  "customerPhone": "254723456789",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "merchantRef": "INV-20240115-0001"
+}

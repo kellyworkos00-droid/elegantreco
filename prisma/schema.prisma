@@ -1,0 +1,573 @@
+// Kelly OS - Payments & Reconciliation System
+// Database schema for Elegant Steel & Fabrication Kenya
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. CUSTOMERS & ACCOUNTS
+// ============================================
+
+model Customer {
+  id                String   @id @default(cuid())
+  customerCode      String   @unique // Used as PayBill account number
+  name              String
+  email             String?
+  phone             String   @unique
+  idNumber          String?
+  kraPin            String?
+  businessName      String?
+  
+  // Balance tracking
+  balance           Decimal  @default(0) @db.Decimal(15, 2)
+  creditLimit       Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Metadata
+  branch            String?
+  category          String?  // Retail, Wholesale, Corporate
+  status            CustomerStatus @default(ACTIVE)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  invoices          Invoice[]
+  payments          Payment[]
+  posSales          PosSale[]
+  ledgerEntries     LedgerEntry[]
+  statements        CustomerStatement[]
+  
+  @@index([customerCode])
+  @@index([phone])
+  @@index([status])
+}
+
+enum CustomerStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+// ============================================
+// 2. INVOICES
+// ============================================
+
+model Invoice {
+  id                String   @id @default(cuid())
+  invoiceNumber     String   @unique
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  
+  // Amounts
+  subtotal          Decimal  @db.Decimal(15, 2)
+  tax               Decimal  @default(0) @db.Decimal(15, 2)
+  discount          Decimal  @default(0) @db.Decimal(15, 2)
+  total             Decimal  @db.Decimal(15, 2)
+  paidAmount        Decimal  @default(0) @db.Decimal(15, 2)
+  balance           Decimal  @db.Decimal(15, 2)
+  
+  // Status
+  status            InvoiceStatus @default(PENDING)
+  dueDate           DateTime?
+  paidDate          DateTime?
+  
+  // Metadata
+  branch            String?
+  notes             String?
+  reference         String?
+  createdBy         String
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  items             InvoiceItem[]
+  payments          PaymentAllocation[]
+  posSale           PosSale?
+  ledgerEntries     LedgerEntry[]
+  
+  @@index([customerId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  productId         String?
+  description       String
+  quantity          Decimal  @db.Decimal(15, 3)
+  unitPrice         Decimal  @db.Decimal(15, 2)
+  tax               Decimal  @default(0) @db.Decimal(15, 2)
+  discount          Decimal  @default(0) @db.Decimal(15, 2)
+  total             Decimal  @db.Decimal(15, 2)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([invoiceId])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ============================================
+// 3. POS SALES
+// ============================================
+
+model PosSale {
+  id                String   @id @default(cuid())
+  saleNumber        String   @unique
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  
+  invoiceId         String?  @unique
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  // Amounts
+  total             Decimal  @db.Decimal(15, 2)
+  paidAmount        Decimal  @default(0) @db.Decimal(15, 2)
+  balance           Decimal  @db.Decimal(15, 2)
+  
+  // Payment details
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  
+  // Transaction reference (for M-Pesa/Eazypay)
+  transactionRef    String?
+  
+  // Metadata
+  branch            String
+  terminal          String?
+  cashier           String
+  notes             String?
+  
+  completedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  items             PosSaleItem[]
+  
+  @@index([saleNumber])
+  @@index([customerId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model PosSaleItem {
+  id                String   @id @default(cuid())
+  posSaleId         String
+  posSale           PosSale  @relation(fields: [posSaleId], references: [id], onDelete: Cascade)
+  
+  productId         String?
+  description       String
+  quantity          Decimal  @db.Decimal(15, 3)
+  unitPrice         Decimal  @db.Decimal(15, 2)
+  total             Decimal  @db.Decimal(15, 2)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([posSaleId])
+}
+
+enum PaymentMethod {
+  CASH
+  MPESA
+  EAZYPAY
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ============================================
+// 4. PAYMENTS
+// ============================================
+
+model Payment {
+  id                String   @id @default(cuid())
+  paymentNumber     String   @unique
+  
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  
+  // Amount
+  amount            Decimal  @db.Decimal(15, 2)
+  allocatedAmount   Decimal  @default(0) @db.Decimal(15, 2)
+  unallocatedAmount Decimal  @db.Decimal(15, 2)
+  
+  // Payment details
+  paymentMethod     PaymentMethod
+  paymentDate       DateTime @default(now())
+  
+  // Transaction details
+  transactionId     String?  @unique // M-Pesa/Eazypay transaction ID
+  reference         String?  // Customer/Invoice reference
+  
+  // Source tracking
+  source            PaymentSource
+  sourceDetails     Json?    // Webhook payload
+  
+  // Status
+  status            PaymentStatus @default(COMPLETED)
+  reconciled        Boolean  @default(false)
+  reconciledAt      DateTime?
+  reconciledBy      String?
+  
+  // Metadata
+  branch            String?
+  notes             String?
+  receiptNumber     String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  allocations       PaymentAllocation[]
+  ledgerEntries     LedgerEntry[]
+  webhookEvent      WebhookEvent?
+  
+  @@index([customerId])
+  @@index([transactionId])
+  @@index([paymentDate])
+  @@index([status])
+  @@index([reconciled])
+}
+
+model PaymentAllocation {
+  id                String   @id @default(cuid())
+  
+  paymentId         String
+  payment           Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  invoiceId         String
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  
+  amount            Decimal  @db.Decimal(15, 2)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([paymentId])
+  @@index([invoiceId])
+}
+
+enum PaymentSource {
+  MPESA_STK_PUSH
+  MPESA_PAYBILL
+  EAZYPAY
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  MANUAL
+  BANK_STATEMENT
+}
+
+// ============================================
+// 5. WEBHOOK EVENTS
+// ============================================
+
+model WebhookEvent {
+  id                String   @id @default(cuid())
+  
+  // Event details
+  provider          WebhookProvider
+  eventType         String
+  transactionId     String?  @unique
+  
+  // Payload
+  payload           Json
+  signature         String?
+  
+  // Processing
+  processed         Boolean  @default(false)
+  processedAt       DateTime?
+  error             String?
+  retryCount        Int      @default(0)
+  
+  // Idempotency
+  idempotencyKey    String   @unique
+  
+  // Result
+  paymentId         String?  @unique
+  payment           Payment? @relation(fields: [paymentId], references: [id])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([provider])
+  @@index([processed])
+  @@index([transactionId])
+  @@index([createdAt])
+}
+
+enum WebhookProvider {
+  MPESA
+  EAZYPAY
+}
+
+// ============================================
+// 6. DOUBLE-ENTRY LEDGER
+// ============================================
+
+model Account {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  type              AccountType
+  subtype           String?
+  
+  // Balance tracking
+  balance           Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Hierarchy
+  parentId          String?
+  parent            Account? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children          Account[] @relation("AccountHierarchy")
+  
+  // Status
+  isActive          Boolean  @default(true)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  debitEntries      LedgerEntry[] @relation("DebitAccount")
+  creditEntries     LedgerEntry[] @relation("CreditAccount")
+  
+  @@index([code])
+  @@index([type])
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model LedgerEntry {
+  id                String   @id @default(cuid())
+  entryNumber       String   @unique
+  
+  // Posting date
+  postDate          DateTime @default(now())
+  
+  // Double-entry accounts
+  debitAccountId    String
+  debitAccount      Account  @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  
+  creditAccountId   String
+  creditAccount     Account  @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  
+  // Amount
+  amount            Decimal  @db.Decimal(15, 2)
+  
+  // Source document
+  sourceType        SourceType
+  sourceId          String
+  
+  // References
+  customerId        String?
+  customer          Customer? @relation(fields: [customerId], references: [id])
+  
+  invoiceId         String?
+  invoice           Invoice?  @relation(fields: [invoiceId], references: [id])
+  
+  paymentId         String?
+  payment           Payment?  @relation(fields: [paymentId], references: [id])
+  
+  // Metadata
+  description       String
+  reference         String?
+  branch            String?
+  postedBy          String
+  
+  // Reconciliation
+  reconciled        Boolean  @default(false)
+  reconciledAt      DateTime?
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([entryNumber])
+  @@index([postDate])
+  @@index([sourceType, sourceId])
+  @@index([customerId])
+  @@index([reconciled])
+}
+
+enum SourceType {
+  INVOICE
+  PAYMENT
+  SALE
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+// ============================================
+// 7. CUSTOMER STATEMENTS
+// ============================================
+
+model CustomerStatement {
+  id                String   @id @default(cuid())
+  
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  
+  transactionDate   DateTime
+  transactionType   StatementType
+  
+  // Reference
+  referenceType     String   // Invoice, Payment, Adjustment
+  referenceId       String
+  referenceNumber   String
+  
+  // Amounts
+  debit             Decimal  @default(0) @db.Decimal(15, 2)
+  credit            Decimal  @default(0) @db.Decimal(15, 2)
+  balance           Decimal  @db.Decimal(15, 2)
+  
+  description       String
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([customerId, transactionDate])
+  @@index([transactionDate])
+}
+
+enum StatementType {
+  INVOICE
+  PAYMENT
+  CREDIT_NOTE
+  DEBIT_NOTE
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+// ============================================
+// 8. BANK RECONCILIATION
+// ============================================
+
+model BankStatement {
+  id                String   @id @default(cuid())
+  
+  // Bank details
+  bankName          String
+  accountNumber     String
+  statementDate     DateTime
+  
+  // File info
+  fileName          String
+  uploadedBy        String
+  
+  // Processing
+  processed         Boolean  @default(false)
+  processedAt       DateTime?
+  
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  transactions      BankTransaction[]
+  
+  @@index([statementDate])
+}
+
+model BankTransaction {
+  id                String   @id @default(cuid())
+  
+  statementId       String
+  statement         BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  
+  // Transaction details
+  transactionDate   DateTime
+  description       String
+  reference         String?
+  debit             Decimal  @default(0) @db.Decimal(15, 2)
+  credit            Decimal  @default(0) @db.Decimal(15, 2)
+  balance           Decimal  @db.Decimal(15, 2)
+  
+  // Matching
+  matched           Boolean  @default(false)
+  matchedPaymentId  String?
+  matchScore        Float?
+  
+  // Manual review
+  approved          Boolean  @default(false)
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([statementId])
+  @@index([transactionDate])
+  @@index([matched])
+}
+
+// ============================================
+// 9. AUDIT & SYSTEM
+// ============================================
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  
+  entityType        String
+  entityId          String
+  action            AuditAction
+  
+  // Changes
+  oldValue          Json?
+  newValue          Json?
+  
+  // User context
+  userId            String
+  userName          String
+  ipAddress         String?
+  userAgent         String?
+  
+  // Metadata
+  timestamp         DateTime @default(now())
+  
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  RECONCILE
+}
+
+model SystemConfig {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  value             Json
+  description       String?
+  
+  updatedAt         DateTime @updatedAt
+  updatedBy         String
+}

@@ -1,0 +1,15 @@
+{
+  "TransactionType": "Pay Bill",
+  "TransID": "NLJ7RT61SV",
+  "TransTime": "20191219102115",
+  "TransAmount": "50000.00",
+  "BusinessShortCode": "600000",
+  "BillRefNumber": "CUST001",
+  "InvoiceNumber": "",
+  "OrgAccountBalance": "",
+  "ThirdPartyTransID": "",
+  "MSISDN": "254712345678",
+  "FirstName": "John",
+  "MiddleName": "",
+  "LastName": "Kamau"
+}
