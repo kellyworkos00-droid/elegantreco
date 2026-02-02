@@ -4,10 +4,12 @@
  * Handles CSV/Excel uploads and fuzzy matching
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Payment, Customer } from '@prisma/client';
 import { BankStatementRow, ReconciliationMatch } from './types';
 
 const prisma = new PrismaClient();
+
+type PaymentWithCustomer = Payment & { customer: Customer | null };
 
 /**
  * Process uploaded bank statement
@@ -141,7 +143,7 @@ async function findPaymentMatch(
   }
 
   // Calculate match scores
-  const matches: ReconciliationMatch[] = candidates.map(payment => {
+  const matches: ReconciliationMatch[] = candidates.map((payment: PaymentWithCustomer) => {
     let score = 0;
     
     // Exact amount match (critical)
