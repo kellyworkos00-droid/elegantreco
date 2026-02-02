@@ -4,7 +4,7 @@
   "description": "Kelly OS Payments & Reconciliation System for Kenyan businesses",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
@@ -12,11 +12,12 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "init:accounts": "tsx scripts/init-accounts.ts",
-    "retry:webhooks": "tsx scripts/retry-webhooks.ts"
+    "retry:webhooks": "tsx scripts/retry-webhooks.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
-    "next": "^14.0.0",
+    "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "bcrypt": "^5.1.1",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.5",
     "prisma": "^5.7.0",
