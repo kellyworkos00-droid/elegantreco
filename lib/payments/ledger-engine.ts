@@ -3,7 +3,7 @@
  * Implements proper accounting principles for financial integrity
  */
 
-import { Prisma, SourceType } from '@prisma/client';
+import { Prisma, SourceType, AccountType } from '@prisma/client';
 import { LedgerPostingInput } from './types';
 
 /**
@@ -111,32 +111,32 @@ async function generateEntryNumber(tx: Prisma.TransactionClient): Promise<string
 export async function initializeChartOfAccounts(
   tx: Prisma.TransactionClient
 ): Promise<void> {
-  const accounts = [
+  const accounts: Array<{ code: string; name: string; type: AccountType }> = [
     // Assets
-    { code: 'CASH', name: 'Cash on Hand', type: 'ASSET' },
-    { code: 'BANK', name: 'Bank Account', type: 'ASSET' },
-    { code: 'MPESA', name: 'M-Pesa Account', type: 'ASSET' },
-    { code: 'EAZYPAY', name: 'Equity Eazypay Account', type: 'ASSET' },
-    { code: 'ACCOUNTS_RECEIVABLE', name: 'Accounts Receivable', type: 'ASSET' },
-    { code: 'INVENTORY', name: 'Inventory', type: 'ASSET' },
+    { code: 'CASH', name: 'Cash on Hand', type: AccountType.ASSET },
+    { code: 'BANK', name: 'Bank Account', type: AccountType.ASSET },
+    { code: 'MPESA', name: 'M-Pesa Account', type: AccountType.ASSET },
+    { code: 'EAZYPAY', name: 'Equity Eazypay Account', type: AccountType.ASSET },
+    { code: 'ACCOUNTS_RECEIVABLE', name: 'Accounts Receivable', type: AccountType.ASSET },
+    { code: 'INVENTORY', name: 'Inventory', type: AccountType.ASSET },
     
     // Liabilities
-    { code: 'ACCOUNTS_PAYABLE', name: 'Accounts Payable', type: 'LIABILITY' },
-    { code: 'CUSTOMER_DEPOSITS', name: 'Customer Deposits', type: 'LIABILITY' },
+    { code: 'ACCOUNTS_PAYABLE', name: 'Accounts Payable', type: AccountType.LIABILITY },
+    { code: 'CUSTOMER_DEPOSITS', name: 'Customer Deposits', type: AccountType.LIABILITY },
     
     // Equity
-    { code: 'OWNERS_EQUITY', name: 'Owner\'s Equity', type: 'EQUITY' },
-    { code: 'RETAINED_EARNINGS', name: 'Retained Earnings', type: 'EQUITY' },
+    { code: 'OWNERS_EQUITY', name: 'Owner\'s Equity', type: AccountType.EQUITY },
+    { code: 'RETAINED_EARNINGS', name: 'Retained Earnings', type: AccountType.EQUITY },
     
     // Revenue
-    { code: 'SALES_REVENUE', name: 'Sales Revenue', type: 'REVENUE' },
-    { code: 'SERVICE_REVENUE', name: 'Service Revenue', type: 'REVENUE' },
+    { code: 'SALES_REVENUE', name: 'Sales Revenue', type: AccountType.REVENUE },
+    { code: 'SERVICE_REVENUE', name: 'Service Revenue', type: AccountType.REVENUE },
     
     // Expenses
-    { code: 'COST_OF_GOODS_SOLD', name: 'Cost of Goods Sold', type: 'EXPENSE' },
-    { code: 'OPERATING_EXPENSES', name: 'Operating Expenses', type: 'EXPENSE' },
-    { code: 'BANK_CHARGES', name: 'Bank Charges', type: 'EXPENSE' },
-    { code: 'MPESA_CHARGES', name: 'M-Pesa Transaction Charges', type: 'EXPENSE' },
+    { code: 'COST_OF_GOODS_SOLD', name: 'Cost of Goods Sold', type: AccountType.EXPENSE },
+    { code: 'OPERATING_EXPENSES', name: 'Operating Expenses', type: AccountType.EXPENSE },
+    { code: 'BANK_CHARGES', name: 'Bank Charges', type: AccountType.EXPENSE },
+    { code: 'MPESA_CHARGES', name: 'M-Pesa Transaction Charges', type: AccountType.EXPENSE },
   ];
 
   for (const account of accounts) {
