@@ -247,11 +247,13 @@ export async function getSuggestedMatches(
   const dateTo = new Date(transaction.transactionDate);
   dateTo.setDate(dateTo.getDate() + 7);
 
+  const creditAmount = transaction.credit.toNumber();
+
   const payments = await prisma.payment.findMany({
     where: {
       amount: {
-        gte: transaction.credit * 0.95, // Allow 5% variance
-        lte: transaction.credit * 1.05,
+        gte: creditAmount * 0.95, // Allow 5% variance
+        lte: creditAmount * 1.05,
       },
       paymentDate: {
         gte: dateFrom,
